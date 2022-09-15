@@ -802,5 +802,5 @@ if output_predictions:
     if not os.path.exists(f'./predictions/{dataset_name}'):
         os.makedirs(f'./predictions/{dataset_name}')
 
-    np.savetxt(f'./predictions/{dataset_name}/{dataset_name}_pred_phi.txt', phi_predicted)
-    np.savetxt(f'./predictions/{dataset_name}/{dataset_name}_pred_psi.txt', psi_predicted)
+    np.savetxt(f'./predictions/{dataset_name}/{model_name}_{dataset_name}_pred_phi.txt', phi_predicted)
+    np.savetxt(f'./predictions/{dataset_name}/{model_name}_{dataset_name}_pred_psi.txt', psi_predicted)
