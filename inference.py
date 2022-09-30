@@ -19,11 +19,20 @@ model_name = args.model_name
 dataset_name = args.dataset_name
 
 # Import Statements
+# Reference: https://stackoverflow.com/questions/40426502/is-there-a-way-to-suppress-the-messages-tensorflow-prints
+import numpy as np
+import gzip
+import os
+import math
+from itertools import combinations
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 import tensorflow as tf
 import keras
 
 if verbose:
-    print(f"Tensorflow version: {tf.__version__}")
+    print(f"\nTensorflow version: {tf.__version__}")
     print(f"Keras version: {keras.__version__}\n")
 
 from keras import backend, optimizers, callbacks
@@ -41,12 +50,6 @@ from keras.initializers import Ones, Zeros
 from tensorflow.keras.optimizers import Adam
 from tensorflow.python.keras.metrics import Metric
 from tensorflow.python.client import device_lib
-
-import numpy as np
-import gzip
-import os
-import math
-from itertools import combinations
 
 if verbose:
     print("Local devices available:\n{}\n".format('\n'.join([device.name + '(' + device.device_type +')' for device in device_lib.list_local_devices()])))
@@ -660,7 +663,7 @@ additional_layers = {
 assert model_name in model_names, "Invalid model name"
 
 if model_name == "ensemble_3":
-    print("Loading models...\n")
+    print("\nLoading models...\n")
     model_10 = load_model('./models/model_10.h5', custom_objects=additional_layers)
     model_11 = load_model('./models/model_11.h5', custom_objects=additional_layers)
     model_12 = load_model('./models/model_12.h5', custom_objects=additional_layers)
@@ -703,7 +706,7 @@ if model_name == "ensemble_3":
     y_predict = y_predict / 3
     phi_score, psi_score = get_scores(test_label, y_predict, test_phi, test_psi)
 elif model_name == "ensemble_8":
-    print("Loading models...\n")
+    print("\nLoading models...\n")
     model_1 = load_model('./models/model_1.h5', custom_objects=additional_layers)
     model_2 = load_model('./models/model_2.h5', custom_objects=additional_layers)
     model_3 = load_model('./models/model_3.h5', custom_objects=additional_layers)
@@ -760,7 +763,7 @@ elif model_name == "ensemble_8":
     y_predict = y_predict / 8
     phi_score, psi_score = get_scores(test_label, y_predict, test_phi, test_psi)
 else:
-    print("Loading model...\n")
+    print("\nLoading model...\n")
     model = load_model(f'./models/{model_name}.h5', custom_objects=additional_layers)
     print(f"Following model loaded:-\n{base_models_dict[model_name]['name']}: {base_models_dict[model_name]['details']}\n")
 
@@ -790,10 +793,10 @@ else:
 
 print(f"\n=== Prediction Results from SAINT-Angle on {dataset_name} ===")
 print(f"MAE of phi:\t{phi_score}")
-print(f"MAE of psi:\t{psi_score}")
+print(f"MAE of psi:\t{psi_score}\n")
 
 if output_predictions:
-    print("\nWriting predictions to output files...")
+    print("Writing predictions to output files...\n")
     phi_predicted = np.arctan2(y_predict[:, :, 0], y_predict[:, :, 1]) * 180 / np.pi
     psi_predicted = np.arctan2(y_predict[:, :, 2], y_predict[:, :, 3]) * 180 / np.pi
 
