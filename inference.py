@@ -6,7 +6,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--verbose", dest="verbose", action="store_true", help="whether to print out detailed messages (Default: False)")
 parser.add_argument("--output", dest="output_predictions", action="store_true", help="whether to output predicted angles (Default: False)")
 parser.add_argument("-m", "--model", dest="model_name", default="model_1", help="model(s) to use for inference/prediction")
-parser.add_argument("-d", "--dataset", dest="dataset_name", default="TEST2016", help="dataset to use for inference/prediction")
+parser.add_argument("-d", "--dataset", dest="dataset_name", default="TEST2016_A", help="dataset to use for inference/prediction")
 
 parser.set_defaults(verbose=False)
 parser.set_defaults(output_predictions=False)
@@ -49,7 +49,7 @@ import math
 from itertools import combinations
 
 if verbose:
-    print(f"Local devices available:\n{'\n'.join([device.name + '(' + device.device_type +')' for device in device_lib.list_local_devices()])}\n")
+    print("Local devices available:\n{}\n".format('\n'.join([device.name + '(' + device.device_type +')' for device in device_lib.list_local_devices()])))
 
 # Performance Evaluation Functions Definitions
 
@@ -230,8 +230,6 @@ def get_total_mae_np(y_true, y_predict, ground_truth_phi, ground_truth_psi, padd
 
     count_phi = mask_phi.sum() + 1
     count_psi = mask_psi.sum() + 1
-    
-    assert count_phi == count_psi, "Phi count and Psi count mismatched"
 
     y_predphi_angle = (np.arctan2(y_predphi_sin, y_predphi_cos) * 180) / np.pi
     y_predpsi_angle = (np.arctan2(y_predpsi_sin, y_predpsi_cos) * 180) / np.pi
@@ -373,7 +371,7 @@ def load_labels(file_path, dataset_name, force_padding=True, padding_val=-500, i
 
     return data_phi, data_psi, data_label
 
-def get_scores(y_predict):
+def get_scores(test_label, y_predict, test_phi, test_psi):
     total_score = get_total_mae_np(test_label, y_predict, test_phi, test_psi, -500)
     phi_score = get_phi_mae_np(test_label, y_predict, test_phi, -500)
     psi_score = get_psi_mae_np(test_label, y_predict, test_psi, -500)
@@ -422,6 +420,7 @@ class DataLoader(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.num_features = num_features
         self.use_protbert = use_protbert
+        self.shuffle = shuffle
 
         if verbose:
             print("\nDataLoader in action...\n\nLoading protein lengths...")
@@ -486,16 +485,16 @@ class DataLoader(tf.keras.utils.Sequence):
         if verbose:
             print(f"Weight mask shape: {self.weight_mask.shape}")
 
-        self.on_epoch_end(shuffle)
+        self.on_epoch_end()
 
-    def on_epoch_end(self, shuffle):
+    def on_epoch_end(self):
         # updating indices after each epoch
         self.indices = np.arange(len(self.data_len))
 
-        if shuffle:
+        if self.shuffle:
             np.random.shuffle(self.indices)
 
-    def __load_length(self, index):
+    def __load_lengths(self, index):
         return self.data_len[index]
 
     def __load_labels(self, index):
@@ -508,9 +507,9 @@ class DataLoader(tf.keras.utils.Sequence):
         # returning total number of batches
         return int(math.ceil(len(self.data_len) / self.batch_size))
 
-    def __getitem__(self, batch_index):
+    def __getitem__(self, index):
         # generating indices of a particualr batch
-        batch_indices = self.indices[batch_index * self.batch_size: (batch_index + 1) * self.batch_size]
+        batch_indices = self.indices[index * self.batch_size: (index + 1) * self.batch_size]
 
         features = np.zeros((len(batch_indices), 700, self.num_features))
         att_mask = np.zeros((len(batch_indices), 700))
@@ -528,8 +527,7 @@ class DataLoader(tf.keras.utils.Sequence):
                 protbert_features = np.load(f'{self.protbert_path}/{self.dataset_name}_sample_{sample_idx}')
 
             sample_phi, sample_psi, label[batch_idx] = self.__load_labels(sample_idx)
-            att_mask[batch_idx], position_ids[batch_idx], weight_mask[batch_idx] = self.__load_training_masks(
-                sample_idx)
+            att_mask[batch_idx], position_ids[batch_idx], weight_mask[batch_idx] = self.__load_training_masks(sample_idx)
 
             if self.use_protbert:
                 features[batch_idx] = np.concatenate((protbert_features, base_features), axis=-1)
@@ -695,7 +693,7 @@ if model_name == "ensemble_3":
                 verbose=verbose
             )
         )
-    testphi, testpsi, testlabel = load_labels(f'./datasets/{dataset_name}', dataset_name, ignore_first_and_last=True, verbose=verbose)
+    test_phi, test_psi, test_label = load_labels(f'./datasets/{dataset_name}', dataset_name, ignore_first_and_last=True, verbose=verbose)
 
     print("\nPredicting with SAINT-Angle...")
     y_predict = model_10.predict(test_data_loaders[0])
@@ -703,7 +701,7 @@ if model_name == "ensemble_3":
     y_predict = y_predict + model_12.predict(test_data_loaders[1])
 
     y_predict = y_predict / 3
-    phi_score, psi_score = get_scores(y_predict)
+    phi_score, psi_score = get_scores(test_label, y_predict, test_phi, test_psi)
 elif model_name == "ensemble_8":
     print("Loading models...\n")
     model_1 = load_model('./models/model_1.h5', custom_objects=additional_layers)
@@ -747,7 +745,7 @@ elif model_name == "ensemble_8":
                 verbose=verbose
             )
         )
-    testphi, testpsi, testlabel = load_labels(f'./datasets/{dataset_name}', dataset_name, ignore_first_and_last=True, verbose=verbose)
+    test_phi, test_psi, test_label = load_labels(f'./datasets/{dataset_name}', dataset_name, ignore_first_and_last=True, verbose=verbose)
 
     print("\nPredicting with SAINT-Angle...")
     y_predict = model_1.predict(test_data_loaders[0])
@@ -760,7 +758,7 @@ elif model_name == "ensemble_8":
     y_predict = y_predict + model_8.predict(test_data_loaders[3])
 
     y_predict = y_predict / 8
-    phi_score, psi_score = get_scores(y_predict)
+    phi_score, psi_score = get_scores(test_label, y_predict, test_phi, test_psi)
 else:
     print("Loading model...\n")
     model = load_model(f'./models/{model_name}.h5', custom_objects=additional_layers)
