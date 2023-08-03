@@ -5,7 +5,7 @@ from keras.layers import add, Layer
 import math
 import os
 
-from features import *
+from .features import *
 
 def get_shape_list(x):
     if backend.backend() != "theano":
@@ -50,7 +50,7 @@ class CustomDataLoader(tf.keras.utils.Sequence):
 
     def __getitem__(self, index):
         batch_protein_names = list(self.proteins_dict.keys())[index * self.batch_size:(index + 1) * self.batch_size]
-        num_features = 57 + (self.window_size * 2 - 4) + (1024 if self.use_prottrans else 0)
+        num_features = 57 + (self.window_size * 2 - 4 if self.window_size > 0 else 0) + (1024 if self.use_prottrans else 0)
 
         batch_features = np.zeros(shape=(len(batch_protein_names), 700, num_features))
         batch_attention_masks = np.zeros(shape=(len(batch_protein_names), 700))

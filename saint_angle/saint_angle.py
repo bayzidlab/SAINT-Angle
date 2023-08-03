@@ -8,6 +8,8 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = '3'
 from utils.axils import *
 from utils.evaluations import *
 
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
 def main(args):
     with open(args.proteins_list_path, 'r') as proteins_list_file:
         proteins_list = [protein_name for protein_name in proteins_list_file.read().split('\n') if protein_name != '']
@@ -23,6 +25,8 @@ def main(args):
         else:
             accepted_proteins[protein_name] = len(pseq)
             protein_pseqs[protein_name] = pseq
+
+    print()
 
     if args.verbose:
         print(f"<SAINT-Angle> Total {len(proteins_list)} proteins provided.")
@@ -81,20 +85,16 @@ def main(args):
         for index, protein_name in enumerate(spotcon_unavailables):
             for model_name in predictions:
                 prediction = predictions[model_name][index, :spotcon_unavailables[protein_name]]
-                phi_predictions = np.arctan2(prediction[:, :, 0], prediction[:, :, 1]) * 180 / np.pi
-                psi_predictions = np.arctan2(prediction[:, :, 2], prediction[:, :, 3]) * 180 / np.pi
-
-                phi_predictions, psi_predictions = phi_predictions.reshape((-1,)), psi_predictions.reshape((-1,))
+                phi_predictions = np.arctan2(prediction[:, 0], prediction[:, 1]) * 180 / np.pi
+                psi_predictions = np.arctan2(prediction[:, 2], prediction[:, 3]) * 180 / np.pi
                 phi_predictions[0] = psi_predictions[-1] = 360
 
                 outputs = pd.DataFrame({"Amino Acid": list(protein_pseqs[protein_name]), "Phi": phi_predictions, "Psi": psi_predictions})
                 outputs.to_csv(args.outputs_dir_path + os.sep + protein_name + '.' + model_name + ".csv", index=False)
 
             prediction = avg_prediction[index, :spotcon_unavailables[protein_name]]
-            phi_predictions = np.arctan2(prediction[:, :, 0], prediction[:, :, 1]) * 180 / np.pi
-            psi_predictions = np.arctan2(prediction[:, :, 2], prediction[:, :, 3]) * 180 / np.pi
-
-            phi_predictions, psi_predictions = phi_predictions.reshape((-1,)), psi_predictions.reshape((-1,))
+            phi_predictions = np.arctan2(prediction[:, 0], prediction[:, 1]) * 180 / np.pi
+            psi_predictions = np.arctan2(prediction[:, 2], prediction[:, 3]) * 180 / np.pi
             phi_predictions[0] = psi_predictions[-1] = 360
 
             outputs = pd.DataFrame({"Amino Acid": list(protein_pseqs[protein_name]), "Phi": phi_predictions, "Psi": psi_predictions})
@@ -133,20 +133,16 @@ def main(args):
         for index, protein_name in enumerate(spotcon_availables):
             for model_name in predictions:
                 prediction = predictions[model_name][index, :spotcon_availables[protein_name]]
-                phi_predictions = np.arctan2(prediction[:, :, 0], prediction[:, :, 1]) * 180 / np.pi
-                psi_predictions = np.arctan2(prediction[:, :, 2], prediction[:, :, 3]) * 180 / np.pi
-
-                phi_predictions, psi_predictions = phi_predictions.reshape((-1,)), psi_predictions.reshape((-1,))
+                phi_predictions = np.arctan2(prediction[:, 0], prediction[:, 1]) * 180 / np.pi
+                psi_predictions = np.arctan2(prediction[:, 2], prediction[:, 3]) * 180 / np.pi
                 phi_predictions[0] = psi_predictions[-1] = 360
 
                 outputs = pd.DataFrame({"Amino Acid": list(protein_pseqs[protein_name]), "Phi": phi_predictions, "Psi": psi_predictions})
                 outputs.to_csv(args.outputs_dir_path + os.sep + protein_name + '.' + model_name + ".csv", index=False)
 
             prediction = avg_prediction[index, :spotcon_availables[protein_name]]
-            phi_predictions = np.arctan2(prediction[:, :, 0], prediction[:, :, 1]) * 180 / np.pi
-            psi_predictions = np.arctan2(prediction[:, :, 2], prediction[:, :, 3]) * 180 / np.pi
-
-            phi_predictions, psi_predictions = phi_predictions.reshape((-1,)), psi_predictions.reshape((-1,))
+            phi_predictions = np.arctan2(prediction[:, 0], prediction[:, 1]) * 180 / np.pi
+            psi_predictions = np.arctan2(prediction[:, 2], prediction[:, 3]) * 180 / np.pi
             phi_predictions[0] = psi_predictions[-1] = 360
 
             outputs = pd.DataFrame({"Amino Acid": list(protein_pseqs[protein_name]), "Phi": phi_predictions, "Psi": psi_predictions})
@@ -171,12 +167,12 @@ if __name__ == "__main__":
     parser.add_argument("--list", dest="proteins_list_path", default="./proteins_list", help="path to text file containing list of proteins")
     parser.add_argument("--inputs", dest="inputs_dir_path", default="./inputs", help="path to directory containing input files")
     parser.add_argument("--outputs", dest="outputs_dir_path", default="./outputs", help="path to directory containing output files")
-    parser.add_argument("--verbose", dest="verbose", action="store_true", help="whether to print out detailed messages (Default: False)")
-    parser.add_argument("--gpu", dest="use_gpu", action="store_true", help="whether to use gpu for features generation (Default: False)")
+    parser.add_argument("--verbose", dest="verbose", action="store_true", help="enables detailed messages printing (Default: False)")
+    parser.add_argument("--gpu", dest="use_gpu", action="store_true", help="enables gpu usage for features generation (Default: False)")
 
     parser.set_defaults(verbose=False)
     parser.set_defaults(use_gpu=False)
     args = parser.parse_args()
 
     main(args)
-    print("<SAINT-Angle> Done!")
+    print("<SAINT-Angle> Done!\n")
