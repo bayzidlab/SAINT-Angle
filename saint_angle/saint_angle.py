@@ -1,246 +1,182 @@
-from keras import backend
 from keras.models import load_model
 
 import argparse
-import numpy as np
 import os
-import gc
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = '3'
 
 from utils.axils import *
 from utils.evaluations import *
-from utils.features import *
 
-parser = argparse.ArgumentParser()
+def main(args):
+    with open(args.proteins_list_path, 'r') as proteins_list_file:
+        proteins_list = [protein_name for protein_name in proteins_list_file.read().split('\n') if protein_name != '']
 
-parser.add_argument("-l", "--list", dest="proteins_list_path", default="./proteins_list", help="path to text file containing list of proteins")
-parser.add_argument("-i", "--inputs", dest="inputs_dir_path", default="./inputs", help="path to directory containing input files")
-parser.add_argument("-o", "--outputs", dest="outputs_dir_path", default="./outputs", help="path to directory containing output files")
-parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="whether to print out detailed messages (Default: False)")
+    accepted_proteins, rejected_proteins, protein_pseqs = {}, [], {}
 
-parser.set_defaults(verbose=False)
+    for protein_name in proteins_list:
+        with open(args.inputs_dir_path + os.sep + protein_name + ".fasta", 'r') as fasta_file:
+            pseq = fasta_file.read().split('\n')[1]
 
-args = parser.parse_args()
+        if len(pseq) > 700:
+            rejected_proteins.append(protein_name)
+        else:
+            accepted_proteins[protein_name] = len(pseq)
+            protein_pseqs[protein_name] = pseq
 
-base_models_dict = {
-    "model_1": {
-        "name": "SAINT-Angle (model_1)",
-        "details": "Basic architecture trained with 57 Base features",
-        "num_features": 57,
-        "use_protbert": False,
-        "base_path": "split-base(57)-win10(16)"
-    },
-    "model_2": {
-        "name": "SAINT-Angle (model_2)",
-        "details": "Basic architecture trained with 57 Base and 16 Window10 features",
-        "num_features": 73,
-        "use_protbert": False,
-        "base_path": "split-base(57)-win10(16)"
-    },
-    "model_3": {
-        "name": "SAINT-Angle (model_3)",
-        "details": "ProtTrans architecture trained with 57 Base and 1024 ProtTrans features",
-        "num_features": 1081,
-        "use_protbert": True,
-        "base_path": "split-base(57)-win10(16)"
-    },
-    "model_4": {
-        "name": "SAINT-Angle (model_4)",
-        "details": "ProtTrans architecture trained with 57 Base, 16 Window10, and 1024 ProtTrans features",
-        "num_features": 1097,
-        "use_protbert": True,
-        "base_path": "split-base(57)-win10(16)"
-    },
-    "model_5": {
-        "name": "SAINT-Angle (model_5)",
-        "details": "ProtTrans architecture trained with 57 Base, 36 Window20, and 1024 ProtTrans features",
-        "num_features": 1117,
-        "use_protbert": True,
-        "base_path": "split-base(57)-win20(36)"
-    },
-    "model_6": {
-        "name": "SAINT-Angle (model_6)",
-        "details": "ProtTrans architecture trained with 57 Base, 96 Window50, and 1024 ProtTrans features",
-        "num_features": 1177,
-        "use_protbert": True,
-        "base_path": "split-base(57)-win50(96)"
-    },
-    "model_7": {
-        "name": "SAINT-Angle (model_7)",
-        "details": "Residual architecture trained with 57 Base and 1024 ProtTrans features",
-        "num_features": 1081,
-        "use_protbert": True,
-        "base_path": "split-base(57)-win10(16)"
-    },
-    "model_8": {
-        "name": "SAINT-Angle (model_8)",
-        "details": "Residual architecture trained with 57 Base, 16 Window10, and 1024 ProtTrans features",
-        "num_features": 1097,
-        "use_protbert": True,
-        "base_path": "split-base(57)-win10(16)"
-    },
-    "model_9": {
-        "name": "SAINT-Angle (model_9)",
-        "details": "Basic architecture trained with 232 ESIDEN features",
-        "num_features": 232,
-        "use_protbert": False,
-        "base_path": "split-ESIDEN(232)"
-    },
-    "model_10": {
-        "name": "SAINT-Angle (model_10)",
-        "details": "Basic architecture trained with 232 ESIDEN and 30 HMM features",
-        "num_features": 262,
-        "use_protbert": False,
-        "base_path": "split-sa_es(262)-win0(0)"
-    },
-    "model_11": {
-        "name": "SAINT-Angle (model_11)",
-        "details": "ProtTrans architecture trained with 232 ESIDEN, 30 HMM, and 1024 ProtTrans features",
-        "num_features": 1286,
-        "use_protbert": True,
-        "base_path": "split-sa_es(262)-win0(0)"
-    },
-    "model_12": {
-        "name": "SAINT-Angle (model_12)",
-        "details": "Residual architecture trained with 232 ESIDEN, 30 HMM, and 1024 ProtTrans features",
-        "num_features": 1286,
-        "use_protbert": True,
-        "base_path": "split-sa_es(262)-win0(0)"
-    }
-}
+    if args.verbose:
+        print(f"<SAINT-Angle> Total {len(proteins_list)} proteins provided.")
+        print(f"Among them, {', '.join(rejected_proteins) if len(rejected_proteins) > 0 else 'no'} proteins have length longer than 700.")
+        print(f"And, {', '.join(accepted_proteins.keys()) if len(accepted_proteins) > 0 else 'no'} proteins have length shorter than or equal to 700.")
+        print(f"Working on {len(accepted_proteins)} proteins for phi and psi angles prediction.\n")
 
-ensemble_3_model_names = ["model_10", "model_11", "model_12"]
-ensemble_8_model_names = ["model_1", "model_2", "model_3", "model_4", "model_5", "model_6", "model_7", "model_8"]
-model_names = ensemble_8_model_names + ["model_9"] + ensemble_3_model_names + ["ensemble_3", "ensemble_8"]
+    del proteins_list, rejected_proteins
+    gc.collect()
 
-additional_layers = {
-    "MyLayer": MyLayer,
-    "backend": backend,
-    "shape_list": get_shape_list,
-    "total_mse_sin_cos": get_total_mse_sin_cos,
-    "total_mae_apu": get_total_mae,
-    "phi_mae": get_phi_mae,
-    "psi_mae": get_psi_mae,
-    "total_sae_apu": get_total_sae,
-    "phi_sae": get_phi_sae,
-    "psi_sae": get_psi_sae
-}
+    if len(accepted_proteins) == 0:
+        del accepted_proteins, protein_pseqs
+        gc.collect()
+        return True
 
-assert model_name in model_names, "Invalid model name"
+    spotcon_availables, spotcon_unavailables = {}, {}
 
-if model_name == "ensemble_3":
-    print("\nLoading models...\n")
-    model_10 = load_model('./models/model_10.h5', custom_objects=additional_layers)
-    model_11 = load_model('./models/model_11.h5', custom_objects=additional_layers)
-    model_12 = load_model('./models/model_12.h5', custom_objects=additional_layers)
+    for protein_name in accepted_proteins:
+        if os.path.isfile(args.inputs_dir_path + os.sep + protein_name + ".spotcon"):
+            spotcon_availables[protein_name] = accepted_proteins[protein_name]
+        else:
+            spotcon_unavailables[protein_name] = accepted_proteins[protein_name]
 
-    models_loaded = '\n'.join(
-        [f"{base_models_dict[model_name]['name']}: {base_models_dict[model_name]['details']}" for model_name in
-         ensemble_3_model_names]
-    )
-    print(f"Following models loaded:-\n{models_loaded}\n")
+    del accepted_proteins
+    gc.collect()
 
-    print("Loading dataset and labels...")
-    configs = [
-        {"base_path": "split-sa_es(262)-win0(0)", "num_features": 262, "use_protbert": False},
-        {"base_path": "split-sa_es(262)-win0(0)", "num_features": 1286, "use_protbert": True}
-    ]
-    test_data_loaders = []
+    additional_layers = {"MyLayer": MyLayer, "backend": backend, "shape_list": get_shape_list, "total_mse_sin_cos": mean_mse, "total_mae_apu": mean_mae, "phi_mae": phi_mae, "psi_mae": psi_mae, "total_sae_apu": mean_sae, "phi_sae": phi_sae, "psi_sae": psi_sae}
+    base_models_dict = {"model_1": {"window_size": 0, "use_prottrans": False}, "model_2": {"window_size": 10, "use_prottrans": False}, "model_3": {"window_size": 0, "use_prottrans": True}, "model_4": {"window_size": 10, "use_prottrans": True}, "model_5": {"window_size": 20, "use_prottrans": True}, "model_6": {"window_size": 50, "use_prottrans": True}, "model_7": {"window_size": 0, "use_prottrans": True}, "model_8": {"window_size": 10, "use_prottrans": True}}
+    non_window_models, window_models = ["model_1", "model_3", "model_7"], ["model_2", "model_4", "model_5", "model_6", "model_8"]
+    base_models = {}
 
-    for config in configs:
-        test_data_loaders.append(
-            DataLoader(
-                base_path=f'./datasets/{dataset_name}/{config["base_path"]}',
-                protbert_path=f'./datasets/{dataset_name}/split-ProtBERT(1024)',
-                dataset_name=dataset_name,
-                batch_size=1,
-                length_file_path=f'./datasets/{dataset_name}/{dataset_name}_len.txt',
-                phi_file_path=f'./datasets/{dataset_name}/{dataset_name}_phi.txt',
-                psi_file_path=f'./datasets/{dataset_name}/{dataset_name}_psi.txt',
-                num_features=config['num_features'],
-                use_protbert=config['use_protbert'],
-                ignore_first_and_last=True,
-                verbose=verbose
-            )
-        )
-    test_phi, test_psi, test_label = load_labels(f'./datasets/{dataset_name}', dataset_name, ignore_first_and_last=True,
-                                                 verbose=verbose)
+    for model_name in non_window_models:
+        base_models[model_name] = load_model("./models" + os.sep + model_name + ".h5", custom_objects=additional_layers)
 
-    print("\nPredicting with SAINT-Angle...")
-    y_predict = model_10.predict(test_data_loaders[0])
-    y_predict = y_predict + model_11.predict(test_data_loaders[1])
-    y_predict = y_predict + model_12.predict(test_data_loaders[1])
+    if args.verbose:
+        print(f"<SAINT-Angle> {', '.join(non_window_models)} loaded.\n")
 
-    y_predict = y_predict / 3
-    phi_score, psi_score = get_scores(test_label, y_predict, test_phi, test_psi)
-elif model_name == "ensemble_8":
-    print("\nLoading models...\n")
-    model_1 = load_model('./models/model_1.h5', custom_objects=additional_layers)
-    model_2 = load_model('./models/model_2.h5', custom_objects=additional_layers)
-    model_3 = load_model('./models/model_3.h5', custom_objects=additional_layers)
-    model_4 = load_model('./models/model_4.h5', custom_objects=additional_layers)
-    model_5 = load_model('./models/model_5.h5', custom_objects=additional_layers)
-    model_6 = load_model('./models/model_6.h5', custom_objects=additional_layers)
-    model_7 = load_model('./models/model_7.h5', custom_objects=additional_layers)
-    model_8 = load_model('./models/model_8.h5', custom_objects=additional_layers)
+    del non_window_models
+    gc.collect()
 
-    models_loaded = '\n'.join(
-        [f"{base_models_dict[model_name]['name']}: {base_models_dict[model_name]['details']}" for model_name in
-         ensemble_8_model_names]
-    )
-    print(f"Following models loaded:-\n{models_loaded}\n")
+    predictions = {}
 
-    print("Loading dataset and labels...")
-    configs = [
-        {"base_path": "split-base(57)-win10(16)", "num_features": 57, "use_protbert": False},
-        {"base_path": "split-base(57)-win10(16)", "num_features": 73, "use_protbert": False},
-        {"base_path": "split-base(57)-win10(16)", "num_features": 1081, "use_protbert": True},
-        {"base_path": "split-base(57)-win10(16)", "num_features": 1097, "use_protbert": True},
-        {"base_path": "split-base(57)-win20(36)", "num_features": 1117, "use_protbert": True},
-        {"base_path": "split-base(57)-win50(96)", "num_features": 1177, "use_protbert": True}
-    ]
-    test_data_loaders = []
+    if len(spotcon_unavailables) > 0:
+        if args.verbose:
+            print(f"<SAINT-Angle> SPOTCON file is not available for {', '.join(spotcon_unavailables.keys())} proteins.")
+            print("Predicting phi and psi angles of these proteins without window features.")
 
-    for config in configs:
-        test_data_loaders.append(
-            DataLoader(
-                base_path=f'./datasets/{dataset_name}/{config["base_path"]}',
-                protbert_path=f'./datasets/{dataset_name}/split-ProtBERT(1024)',
-                dataset_name=dataset_name,
-                batch_size=1,
-                length_file_path=f'./datasets/{dataset_name}/{dataset_name}_len.txt',
-                phi_file_path=f'./datasets/{dataset_name}/{dataset_name}_phi.txt',
-                psi_file_path=f'./datasets/{dataset_name}/{dataset_name}_psi.txt',
-                num_features=config['num_features'],
-                use_protbert=config['use_protbert'],
-                ignore_first_and_last=True,
-                verbose=verbose
-            )
-        )
-    test_phi, test_psi, test_label = load_labels(f'./datasets/{dataset_name}', dataset_name, ignore_first_and_last=True,
-                                                 verbose=verbose)
+        for model_name in base_models:
+            predictions[model_name] = base_models[model_name].predict(CustomDataLoader(proteins_dict=spotcon_unavailables, inputs_dir_path=args.inputs_dir_path, batch_size=1, window_size=base_models_dict[model_name]["window_size"], use_prottrans=base_models_dict[model_name]["use_prottrans"], use_gpu=args.use_gpu))
 
-    print("\nPredicting with SAINT-Angle...")
-    y_predict = model_1.predict(test_data_loaders[0])
-    y_predict = y_predict + model_2.predict(test_data_loaders[1])
-    y_predict = y_predict + model_3.predict(test_data_loaders[2])
-    y_predict = y_predict + model_4.predict(test_data_loaders[3])
-    y_predict = y_predict + model_5.predict(test_data_loaders[4])
-    y_predict = y_predict + model_6.predict(test_data_loaders[5])
-    y_predict = y_predict + model_7.predict(test_data_loaders[2])
-    y_predict = y_predict + model_8.predict(test_data_loaders[3])
+        avg_prediction = sum(predictions.values()) / len(predictions)
 
-    y_predict = y_predict / 8
-    phi_score, psi_score = get_scores(test_label, y_predict, test_phi, test_psi)
+        if not os.path.exists(args.outputs_dir_path):
+            os.makedirs(args.outputs_dir_path)
 
-if output_predictions:
-    print("Writing predictions to output files...\n")
-    phi_predicted = np.arctan2(y_predict[:, :, 0], y_predict[:, :, 1]) * 180 / np.pi
-    psi_predicted = np.arctan2(y_predict[:, :, 2], y_predict[:, :, 3]) * 180 / np.pi
+        for index, protein_name in enumerate(spotcon_unavailables):
+            for model_name in predictions:
+                prediction = predictions[model_name][index, :spotcon_unavailables[protein_name]]
+                phi_predictions = np.arctan2(prediction[:, :, 0], prediction[:, :, 1]) * 180 / np.pi
+                psi_predictions = np.arctan2(prediction[:, :, 2], prediction[:, :, 3]) * 180 / np.pi
 
-    if not os.path.exists(f'./predictions/{dataset_name}'):
-        os.makedirs(f'./predictions/{dataset_name}')
+                phi_predictions, psi_predictions = phi_predictions.reshape((-1,)), psi_predictions.reshape((-1,))
+                phi_predictions[0] = psi_predictions[-1] = 360
 
-    np.savetxt(f'./predictions/{dataset_name}/{model_name}_{dataset_name}_pred_phi.txt', phi_predicted)
-    np.savetxt(f'./predictions/{dataset_name}/{model_name}_{dataset_name}_pred_psi.txt', psi_predicted)
+                outputs = pd.DataFrame({"Amino Acid": list(protein_pseqs[protein_name]), "Phi": phi_predictions, "Psi": psi_predictions})
+                outputs.to_csv(args.outputs_dir_path + os.sep + protein_name + '.' + model_name + ".csv", index=False)
+
+            prediction = avg_prediction[index, :spotcon_unavailables[protein_name]]
+            phi_predictions = np.arctan2(prediction[:, :, 0], prediction[:, :, 1]) * 180 / np.pi
+            psi_predictions = np.arctan2(prediction[:, :, 2], prediction[:, :, 3]) * 180 / np.pi
+
+            phi_predictions, psi_predictions = phi_predictions.reshape((-1,)), psi_predictions.reshape((-1,))
+            phi_predictions[0] = psi_predictions[-1] = 360
+
+            outputs = pd.DataFrame({"Amino Acid": list(protein_pseqs[protein_name]), "Phi": phi_predictions, "Psi": psi_predictions})
+            outputs.to_csv(args.outputs_dir_path + os.sep + protein_name + '.' + "ensemble.csv", index=False)
+
+        if args.verbose:
+            print("Done!\n")
+
+    del spotcon_unavailables, predictions
+    gc.collect()
+
+    if len(spotcon_availables) > 0:
+        for model_name in window_models:
+            base_models[model_name] = load_model("./models" + os.sep + model_name + ".h5", custom_objects=additional_layers)
+
+        if args.verbose:
+            print(f"<SAINT-Angle> {', '.join(window_models)} loaded.\n")
+
+        del window_models
+        gc.collect()
+
+        predictions = {}
+
+        if args.verbose:
+            print(f"<SAINT-Angle> SPOTCON file is available for {', '.join(spotcon_availables.keys())} proteins.")
+            print("Predicting phi and psi angles of these proteins with window features.")
+
+        for model_name in base_models:
+            predictions[model_name] = base_models[model_name].predict(CustomDataLoader(proteins_dict=spotcon_availables, inputs_dir_path=args.inputs_dir_path, batch_size=1, window_size=base_models_dict[model_name]["window_size"], use_prottrans=base_models_dict[model_name]["use_prottrans"], use_gpu=args.use_gpu))
+
+        avg_prediction = sum(predictions.values()) / len(predictions)
+
+        if not os.path.exists(args.outputs_dir_path):
+            os.makedirs(args.outputs_dir_path)
+
+        for index, protein_name in enumerate(spotcon_availables):
+            for model_name in predictions:
+                prediction = predictions[model_name][index, :spotcon_availables[protein_name]]
+                phi_predictions = np.arctan2(prediction[:, :, 0], prediction[:, :, 1]) * 180 / np.pi
+                psi_predictions = np.arctan2(prediction[:, :, 2], prediction[:, :, 3]) * 180 / np.pi
+
+                phi_predictions, psi_predictions = phi_predictions.reshape((-1,)), psi_predictions.reshape((-1,))
+                phi_predictions[0] = psi_predictions[-1] = 360
+
+                outputs = pd.DataFrame({"Amino Acid": list(protein_pseqs[protein_name]), "Phi": phi_predictions, "Psi": psi_predictions})
+                outputs.to_csv(args.outputs_dir_path + os.sep + protein_name + '.' + model_name + ".csv", index=False)
+
+            prediction = avg_prediction[index, :spotcon_availables[protein_name]]
+            phi_predictions = np.arctan2(prediction[:, :, 0], prediction[:, :, 1]) * 180 / np.pi
+            psi_predictions = np.arctan2(prediction[:, :, 2], prediction[:, :, 3]) * 180 / np.pi
+
+            phi_predictions, psi_predictions = phi_predictions.reshape((-1,)), psi_predictions.reshape((-1,))
+            phi_predictions[0] = psi_predictions[-1] = 360
+
+            outputs = pd.DataFrame({"Amino Acid": list(protein_pseqs[protein_name]), "Phi": phi_predictions, "Psi": psi_predictions})
+            outputs.to_csv(args.outputs_dir_path + os.sep + protein_name + '.' + "ensemble.csv", index=False)
+
+        if args.verbose:
+            print("Done!\n")
+
+        del predictions
+        gc.collect()
+    else:
+        del window_models
+        gc.collect()
+
+    del protein_pseqs, spotcon_availables, additional_layers, base_models_dict, base_models
+    gc.collect()
+    return True
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--list", dest="proteins_list_path", default="./proteins_list", help="path to text file containing list of proteins")
+    parser.add_argument("--inputs", dest="inputs_dir_path", default="./inputs", help="path to directory containing input files")
+    parser.add_argument("--outputs", dest="outputs_dir_path", default="./outputs", help="path to directory containing output files")
+    parser.add_argument("--verbose", dest="verbose", action="store_true", help="whether to print out detailed messages (Default: False)")
+    parser.add_argument("--gpu", dest="use_gpu", action="store_true", help="whether to use gpu for features generation (Default: False)")
+
+    parser.set_defaults(verbose=False)
+    parser.set_defaults(use_gpu=False)
+    args = parser.parse_args()
+
+    main(args)
+    print("<SAINT-Angle> Done!")
