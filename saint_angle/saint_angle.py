@@ -98,7 +98,7 @@ def main(args):
             phi_predictions[0] = psi_predictions[-1] = 360
 
             outputs = pd.DataFrame({"Amino Acid": list(protein_pseqs[protein_name]), "Phi": phi_predictions, "Psi": psi_predictions})
-            outputs.to_csv(args.outputs_dir_path + os.sep + protein_name + '.' + "ensemble.csv", index=False)
+            outputs.to_csv(args.outputs_dir_path + os.sep + protein_name + '.' + "ensemble3.csv", index=False)
 
         if args.verbose:
             print("Done!\n")
@@ -146,7 +146,7 @@ def main(args):
             phi_predictions[0] = psi_predictions[-1] = 360
 
             outputs = pd.DataFrame({"Amino Acid": list(protein_pseqs[protein_name]), "Phi": phi_predictions, "Psi": psi_predictions})
-            outputs.to_csv(args.outputs_dir_path + os.sep + protein_name + '.' + "ensemble.csv", index=False)
+            outputs.to_csv(args.outputs_dir_path + os.sep + protein_name + '.' + "ensemble8.csv", index=False)
 
         if args.verbose:
             print("Done!\n")
