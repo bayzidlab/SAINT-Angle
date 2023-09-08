@@ -63,12 +63,12 @@ class CustomDataLoader(tf.keras.utils.Sequence):
 
             with open(protein_file_path + ".fasta", 'r') as fasta_file:
                 pseq = fasta_file.read().split('\n')[1]
-
-            hhm = generate_hhm(hhm_file_path=protein_file_path + ".hhm", pseq=pseq)
-            pssm = generate_pssm(pssm_file_path=protein_file_path + ".pssm", pseq=pseq)
-            pcp = generate_pcp(pseq=pseq)
-            contact = generate_contact(contact_file_path=protein_file_path + ".spotcon", pseq=pseq, window_size=self.window_size)
-            prottrans = generate_prottrans(pseq=pseq, use_gpu=self.use_gpu) if self.use_prottrans else None
+			
+            hhm = np.nan_to_num(generate_hhm(hhm_file_path=protein_file_path + ".hhm", pseq=pseq), nan=0.0)
+            pssm = np.nan_to_num(generate_pssm(pssm_file_path=protein_file_path + ".pssm", pseq=pseq), nan=0.0)
+            pcp = np.nan_to_num(generate_pcp(pseq=pseq), nan=0.0)
+            contact = np.nan_to_num(generate_contact(contact_file_path=protein_file_path + ".spotcon", pseq=pseq, window_size=self.window_size), nan=0.0)
+            prottrans = np.nan_to_num(generate_prottrans(pseq=pseq, use_gpu=self.use_gpu), nan=0.0) if self.use_prottrans else None
 
             features = np.concatenate([hhm, pssm, pcp], axis=1)
 
