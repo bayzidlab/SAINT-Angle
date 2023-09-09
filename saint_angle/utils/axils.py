@@ -67,7 +67,7 @@ class CustomDataLoader(tf.keras.utils.Sequence):
             hhm = np.nan_to_num(generate_hhm(hhm_file_path=protein_file_path + ".hhm", pseq=pseq), nan=0.0)
             pssm = np.nan_to_num(generate_pssm(pssm_file_path=protein_file_path + ".pssm", pseq=pseq), nan=0.0)
             pcp = np.nan_to_num(generate_pcp(pseq=pseq), nan=0.0)
-            contact = np.nan_to_num(generate_contact(contact_file_path=protein_file_path + ".spotcon", pseq=pseq, window_size=self.window_size), nan=0.0)
+            contact = np.nan_to_num(generate_contact(contact_file_path=protein_file_path + ".spotcon", pseq=pseq, window_size=self.window_size), nan=0.0) if self.window_size > 0 else None
             prottrans = np.nan_to_num(generate_prottrans(pseq=pseq, use_gpu=self.use_gpu), nan=0.0) if self.use_prottrans else None
 
             features = np.concatenate([hhm, pssm, pcp], axis=1)
