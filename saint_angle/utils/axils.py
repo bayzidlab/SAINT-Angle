@@ -4,8 +4,8 @@ from keras.layers import add, Layer
 
 import math
 import os
-
-from .features import *
+import numpy as np
+import pickle
 
 def get_shape_list(x):
     if backend.backend() != "theano":
@@ -21,7 +21,8 @@ class MyLayer(Layer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._x = None
-    
+        # self._trainable_weights = None
+
     def build(self, input_shape):
         self._x = backend.variable(0.2)
         self._x._trainable = True
@@ -37,43 +38,65 @@ class MyLayer(Layer):
         return input_shape[0]
 
 class CustomDataLoader(tf.keras.utils.Sequence):
-    def __init__(self, proteins_dict, inputs_dir_path, batch_size, window_size=0, use_prottrans=False, use_gpu=False):
-        self.proteins_dict = proteins_dict
-        self.inputs_dir_path = inputs_dir_path
-        self.batch_size = batch_size
-        self.window_size = window_size
-        self.use_prottrans = use_prottrans
-        self.use_gpu = use_gpu
+    def __init__(self, proteins_dict, protein_names, features_dir_path, batch_size, window_size=0, use_prottrans=False):
+        self.proteins_dict, self.protein_names = proteins_dict, protein_names
+        self.features_dir_path, self.batch_size = features_dir_path, batch_size
+        self.window_size, self.use_prottrans = window_size, use_prottrans
 
     def __len__(self):
-        return math.ceil(len(self.proteins_dict) / self.batch_size)
+        return math.ceil(len(self.protein_names) / self.batch_size)
 
     def __getitem__(self, index):
-        batch_protein_names = list(self.proteins_dict.keys())[index * self.batch_size:(index + 1) * self.batch_size]
+        batch_protein_names = self.protein_names[index * self.batch_size:(index + 1) * self.batch_size]
         num_features = 57 + (self.window_size * 2 - 4 if self.window_size > 0 else 0) + (1024 if self.use_prottrans else 0)
 
         batch_features = np.zeros(shape=(len(batch_protein_names), 700, num_features))
         batch_attention_masks = np.zeros(shape=(len(batch_protein_names), 700))
         batch_positions_ids = np.zeros(shape=(len(batch_protein_names), 700))
         batch_weight_masks = np.zeros(shape=(len(batch_protein_names), 700))
-        batch_labels = None
+        batch_labels = np.zeros(shape=(len(batch_protein_names), 700, 4))
 
         for batch_index, protein_name in enumerate(batch_protein_names):
-            protein_file_path = self.inputs_dir_path + os.sep + protein_name
+            features_file_path = self.features_dir_path + os.sep + protein_name
 
-            with open(protein_file_path + ".fasta", 'r') as fasta_file:
-                pseq = fasta_file.read().split('\n')[1]
-			
-            hhm = np.nan_to_num(generate_hhm(hhm_file_path=protein_file_path + ".hhm", pseq=pseq), nan=0.0)
-            pssm = np.nan_to_num(generate_pssm(pssm_file_path=protein_file_path + ".pssm", pseq=pseq), nan=0.0)
-            pcp = np.nan_to_num(generate_pcp(pseq=pseq), nan=0.0)
-            contact = np.nan_to_num(generate_contact(contact_file_path=protein_file_path + ".spotcon", pseq=pseq, window_size=self.window_size), nan=0.0) if self.window_size > 0 else None
-            prottrans = np.nan_to_num(generate_prottrans(pseq=pseq, use_gpu=self.use_gpu), nan=0.0) if self.use_prottrans else None
+            with open(features_file_path + "_hhm.npy", 'rb') as hhm_file:
+                hhm = np.load(file=hhm_file)
+
+            with open(features_file_path + "_pssm.npy", 'rb') as pssm_file:
+                pssm = np.load(file=pssm_file)
+
+            with open(features_file_path + "_pcp.npy", 'rb') as pcp_file:
+                pcp = np.load(file=pcp_file)
 
             features = np.concatenate([hhm, pssm, pcp], axis=1)
 
+            if self.window_size > 0:
+                with open(features_file_path + f"_win{self.window_size}.npy", 'rb') as win_file:
+                    contact = np.load(file=win_file)
+            else:
+                contact = None
+
+            if self.use_prottrans:
+                with open(features_file_path + "_prottrans.npy", 'rb') as prottrans_file:
+                    prottrans = np.load(file=prottrans_file)
+            else:
+                prottrans = None
+
             if contact is not None:
                 features = np.concatenate([features, contact], axis=1)
+                pickle_file_mappings = {10: "5norm_data.p", 20: "0norm_data.p", 50: "1norm_data.p"}
+
+                with open("./data" + os.sep + pickle_file_mappings[self.window_size], 'rb') as pickle_file:
+                    norm_dict = pickle.load(file=pickle_file, encoding="latin1")
+
+                norm_mu, norm_std = norm_dict["mu1d"], norm_dict["std1d"]
+                features = (features - norm_mu) / norm_std
+            else:
+                with open("./data/5norm_data.p", 'rb') as pickle_file:
+                    norm_dict = pickle.load(file=pickle_file, encoding="latin1")
+
+                norm_mu, norm_std = norm_dict["mu1d"][:57], norm_dict["std1d"][:57]
+                features = (features - norm_mu) / norm_std
 
             if prottrans is not None:
                 features = np.concatenate([prottrans, features], axis=1)

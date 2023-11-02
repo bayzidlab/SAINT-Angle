@@ -19,7 +19,7 @@ def generate_pssm(pssm_file_path, pseq):
 
     assert pssm.shape[0] == len(pseq), "PSSM file is in wrong format!"
 
-    pssm = (pssm - np.mean(pssm, axis=0, keepdims=True)) / np.std(pssm, axis=0, keepdims=True)
+    # pssm = (pssm - np.mean(pssm, axis=0, keepdims=True)) / np.std(pssm, axis=0, keepdims=True)
     return pssm
 
 def generate_hhm(hhm_file_path, pseq):
@@ -36,7 +36,7 @@ def generate_hhm(hhm_file_path, pseq):
 
     assert hhm.shape[0] == len(pseq), "HHM file is in wrong format!"
 
-    hhm = (hhm - np.mean(hhm, axis=0, keepdims=True)) / np.std(hhm, axis=0, keepdims=True)
+    # hhm = (hhm - np.mean(hhm, axis=0, keepdims=True)) / np.std(hhm, axis=0, keepdims=True)
     return hhm
 
 def get_pcp_dictionary():
@@ -60,14 +60,15 @@ def get_pcp_dictionary():
         'T': [0.402, -0.417, -0.321, -0.199, -0.288, -0.403, 0.212],
         'W': [0.479, 0.900, 0.900, 0.900, -0.209, 0.279, 0.529],
         'Y': [0.363, 0.417, 0.541, 0.188, -0.274, -0.155, 0.476],
-        'V': [0.677, -0.285, -0.232, 0.331, -0.191, -0.031, 0.900]
+        'V': [0.677, -0.285, -0.232, 0.331, -0.191, -0.031, 0.900],
+        'X': [0.077, -0.154, -0.062, -0.076, -0.145, 0.0497, -0.0398]
     }
     return pcp_dictionary
 
 def generate_pcp(pseq):
     pcp_dictionary = get_pcp_dictionary()
     pcp = np.array([pcp_dictionary.get(amino_acid_residue, [0] * 7) for amino_acid_residue in pseq], dtype=np.float32)
-    pcp = (pcp - np.mean(pcp, axis=0, keepdims=True)) / np.std(pcp, axis=0, keepdims=True)
+    # pcp = (pcp - np.mean(pcp, axis=0, keepdims=True)) / np.std(pcp, axis=0, keepdims=True)
     return pcp
 
 def generate_contact(contact_file_path, pseq, window_size, min_sep=3):
@@ -110,7 +111,7 @@ def generate_contact(contact_file_path, pseq, window_size, min_sep=3):
     removal_indices = np.array([window_size + index for index in range(-2, 3)])
     contact = np.delete(contact_array, obj=removal_indices, axis=1).astype(np.float32)
 
-    contact = (contact - np.mean(contact, axis=0, keepdims=True)) / np.std(contact, axis=0, keepdims=True)
+    # contact = (contact - np.mean(contact, axis=0, keepdims=True)) / np.std(contact, axis=0, keepdims=True)
     return contact
 
 def generate_prottrans(pseq, use_gpu=False):
