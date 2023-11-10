@@ -101,7 +101,7 @@ def main(args):
         protein_names = list(spotcon_unavailables.keys())
 
         for model_name in tqdm(iterable=base_models, desc="Predicting Angles...", ncols=100, unit="model"):
-            predictions[model_name] = base_models[model_name].predict(CustomDataLoader(proteins_dict=spotcon_unavailables, protein_names=protein_names, features_dir_path=features_dir_path, batch_size=1, window_size=base_models_dict[model_name]["window_size"], use_prottrans=base_models_dict[model_name]["use_prottrans"]))
+            predictions[model_name] = base_models[model_name].predict(CustomDataLoader(proteins_dict=spotcon_unavailables, protein_names=protein_names, features_dir_path=features_dir_path, batch_size=1, window_size=base_models_dict[model_name]["window_size"], use_prottrans=base_models_dict[model_name]["use_prottrans"], data_dir_path="./data"))
 
         avg_prediction = sum(predictions.values()) / len(predictions)
 
@@ -182,7 +182,7 @@ def main(args):
         protein_names = list(spotcon_availables.keys())
 
         for model_name in tqdm(iterable=base_models, desc="Predicting Angles...", ncols=100, unit="model"):
-            predictions[model_name] = base_models[model_name].predict(CustomDataLoader(proteins_dict=spotcon_availables, protein_names=protein_names, features_dir_path=features_dir_path, batch_size=1, window_size=base_models_dict[model_name]["window_size"], use_prottrans=base_models_dict[model_name]["use_prottrans"]))
+            predictions[model_name] = base_models[model_name].predict(CustomDataLoader(proteins_dict=spotcon_availables, protein_names=protein_names, features_dir_path=features_dir_path, batch_size=1, window_size=base_models_dict[model_name]["window_size"], use_prottrans=base_models_dict[model_name]["use_prottrans"], data_dir_path="./data"))
 
         avg_prediction = sum(predictions.values()) / len(predictions)
 

@@ -18,8 +18,6 @@ def generate_pssm(pssm_file_path, pseq):
         pssm = pd.read_csv(pssm_file, names=pssm_column_names, delim_whitespace=True).dropna().values[:, 2:22].astype(np.float32)
 
     assert pssm.shape[0] == len(pseq), "PSSM file is in wrong format!"
-
-    # pssm = (pssm - np.mean(pssm, axis=0, keepdims=True)) / np.std(pssm, axis=0, keepdims=True)
     return pssm
 
 def generate_hhm(hhm_file_path, pseq):
@@ -35,8 +33,6 @@ def generate_hhm(hhm_file_path, pseq):
     hhm = hhm[:, 2:-12].astype(np.float32)
 
     assert hhm.shape[0] == len(pseq), "HHM file is in wrong format!"
-
-    # hhm = (hhm - np.mean(hhm, axis=0, keepdims=True)) / np.std(hhm, axis=0, keepdims=True)
     return hhm
 
 def get_pcp_dictionary():
@@ -68,7 +64,6 @@ def get_pcp_dictionary():
 def generate_pcp(pseq):
     pcp_dictionary = get_pcp_dictionary()
     pcp = np.array([pcp_dictionary.get(amino_acid_residue, [0] * 7) for amino_acid_residue in pseq], dtype=np.float32)
-    # pcp = (pcp - np.mean(pcp, axis=0, keepdims=True)) / np.std(pcp, axis=0, keepdims=True)
     return pcp
 
 def generate_contact(contact_file_path, pseq, window_size, min_sep=3):
@@ -110,8 +105,6 @@ def generate_contact(contact_file_path, pseq, window_size, min_sep=3):
     contact_array = np.concatenate([resize[index:(index + 2 * window_size + 1), index, :features_depth] for index in range(pseq_length)], axis=1).T
     removal_indices = np.array([window_size + index for index in range(-2, 3)])
     contact = np.delete(contact_array, obj=removal_indices, axis=1).astype(np.float32)
-
-    # contact = (contact - np.mean(contact, axis=0, keepdims=True)) / np.std(contact, axis=0, keepdims=True)
     return contact
 
 def generate_prottrans(pseq, use_gpu=False):
